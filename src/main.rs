@@ -1,11 +1,12 @@
 use chrono::{DateTime, Local};
-use rand::{distributions::Uniform, Rng};
-use std::{fs, process::Command, str};
+use rand::{Rng};
+use std::{fs, process::Command, str, iter};
+use regex::Regex;
 
 // only remaining issue is to solve EOF errors, can either adjust character set or sh command
 fn main() {
-    let acct_password: String = generate_password();
-    let zip_password: String = generate_password();
+    let acct_password: String = generate_password(12);
+    let zip_password: String = generate_password(12);
     let datetime_string: String = get_datetime_string();
     let win_path: String = get_win_path(&datetime_string);
     let win_txt_path: String = format!("{win_path}.txt");
@@ -15,6 +16,19 @@ fn main() {
     println!("{}", zip_password);
     write_password_to_file(&win_txt_path, acct_password);
     zip_file_with_password(&sh_txt_path, &zip_path, zip_password)
+}
+
+fn generate_password(length: usize) -> String {
+    let chars: &[u8] = b"#qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM01234567890@$%^&*";
+    let mut rng = rand::thread_rng();
+    let char = || chars[rng.gen_range(0..chars.len())] as char;
+    let password: String = iter::repeat_with(char).take(length).collect();
+    let password_regex = Regex::new(r"^(.*[a-z].*)(.*[A-Z].*)(.*[0-9].*)(.*[@$!%*?&].*)[A-Za-z\d@$!%*?&]$").unwrap();
+    if password_regex.is_match(&password) {
+        password
+    } else {
+        generate_password(length)
+    }
 }
 
 fn zip_file_with_password(txt_path: &str, zip_path: &str, password: String) {
@@ -37,14 +51,15 @@ fn get_win_path(datetime_string: &str) -> String {
     full_path
 }
 
-fn generate_password() -> String {
-    let password: String = rand::thread_rng()
-        .sample_iter(Uniform::new(char::from(32), char::from(126)))
-        .take(12)
-        .map(char::from)
-        .collect();
-    password
-}
+// fn generate_password() -> String {
+//     let password: String = rand::thread_rng()
+//         // .sample_iter(Uniform::new(char::from(35), char::from(126)))
+//         .sample_iter(Uniform::from("abcdefg"))
+//         .take(12)
+//         .map(char::from)
+//         .collect();
+//     format!("{}\n", password)
+// }
 
 fn get_datetime_string() -> String {
     let datetime: DateTime<Local> = chrono::offset::Local::now();
