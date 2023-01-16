@@ -1,62 +1,39 @@
 use chrono::{DateTime, Local};
-use encryptfile as ef;
 use rand::{distributions::Uniform, Rng};
-use std::{fs, io::Write, process::Command, str};
+use std::{fs, process::Command, str};
 
-// use bash command in shell with zip enstalled to zip -er files with password,
-// not sure how I will enter password. Need to either pass it to the zip command
-// or enter it into shell with rust after the first zip command.
-
+// only remaining issue is to solve EOF errors, can either adjust character set or sh command
 fn main() {
-    let password: String = generate_password();
+    let acct_password: String = generate_password();
+    let zip_password: String = generate_password();
     let datetime_string: String = get_datetime_string();
-    let full_path: String = get_full_path(datetime_string);
-    // write_to_file(&full_path, password);
-    write_to_zip(&full_path, &password)
-        .unwrap_or_default();
-    encrypt_file();
+    let win_path: String = get_win_path(&datetime_string);
+    let win_txt_path: String = format!("{win_path}.txt");
+    let sh_txt_path: String = format!("{datetime_string}.txt");
+    let zip_path: String = format!("{datetime_string}.zip");
+    println!("{}", zip_path);
+    println!("{}", zip_password);
+    write_password_to_file(&win_txt_path, acct_password);
+    zip_file_with_password(&sh_txt_path, &zip_path, zip_password)
 }
 
-fn encrypt_file() {
-    let in_file = r#"C:\Users\Kyle\workspace\rust\password_resetter\testin.txt"#;
-    let mut c = ef::Config::new();
-    c.input_stream(ef::InputStream::File(in_file.to_owned()))
-        .output_stream(ef::OutputStream::File(r#"C:\Users\Kyle\workspace\rust\password_resetter\testout.ef"#.to_owned()))
-        .add_output_option(ef::OutputOption::AllowOverwrite)
-        .initialization_vector(ef::InitializationVector::GenerateFromRng)
-        .salt("ladslfkaslk4n#$%$#063840")
-        .password(ef::PasswordType::Text("iloveyou".to_owned(), ef::scrypt_defaults()))
-        .encrypt();
-    let _ = ef::process(&c).map_err(|e| panic!("error encrypting: {:?}", e));
+fn zip_file_with_password(txt_path: &str, zip_path: &str, password: String) {
+    println!("{} {} {}", txt_path, zip_path, password);
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("zip -e {zip_path} {txt_path} -P {password}"))
+        .output();
+    println!("{:#?}", output)
 }
 
-// fn zip_with_password(filename: &str, password: &str) {
-//     Command::new("sh")
-//         .arg("-c")
-//         .arg(format!("zip -e test.zip test.txt -P {password}"))
-//         .output();
-// }
-
-fn write_to_zip(filename: &str, content: &str) -> zip::result::ZipResult<()> {
-    let path = std::path::Path::new(filename);
-    let file = std::fs::File::create(path).unwrap();
-    let mut zip = zip::ZipWriter::new(file);
-
-    zip.start_file(filename, Default::default())?;
-    zip.write_all(content.as_bytes())?;
-
-    zip.finish()?;
-    Ok(())
-}
-
-fn write_to_file(path: &str, content: String) {
+fn write_password_to_file(path: &str, password: String) {
     let error_msg: String = format!("Unable to write password to {path}");
-    fs::write(path, content).expect(&error_msg);
+    fs::write(path, password).expect(&error_msg);
 }
 
-fn get_full_path(datetime_string: String) -> String {
+fn get_win_path(datetime_string: &str) -> String {
     let path: String = r#"C:\Users\Kyle\workspace\rust\password_resetter\"#.to_string();
-    let full_path: String = format!("{path}{datetime_string}.zip");
+    let full_path: String = format!("{path}{datetime_string}");
     full_path
 }
 
