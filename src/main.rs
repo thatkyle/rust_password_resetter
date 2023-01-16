@@ -23,8 +23,15 @@ fn generate_password(length: usize) -> String {
     let mut rng = rand::thread_rng();
     let char = || chars[rng.gen_range(0..chars.len())] as char;
     let password: String = iter::repeat_with(char).take(length).collect();
-    let password_regex = Regex::new(r"^(.*[a-z].*)(.*[A-Z].*)(.*[0-9].*)(.*[@$!%*?&].*)[A-Za-z\d@$!%*?&]$").unwrap();
-    if password_regex.is_match(&password) {
+
+    let lowercase_regex = Regex::new(r"[a-z]").unwrap();
+    let uppercase_regex = Regex::new(r"[A-Z]").unwrap();
+    let number_regex = Regex::new(r"[0-9]").unwrap();
+    let symbol_regex = Regex::new(r"[@#$%^&*]").unwrap();
+    if lowercase_regex.is_match(&password) &&
+        uppercase_regex.is_match(&password) &&
+        number_regex.is_match(&password) &&
+        symbol_regex.is_match(&password) {
         password
     } else {
         generate_password(length)
