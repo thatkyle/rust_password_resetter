@@ -1,50 +1,43 @@
 use chrono::{DateTime, Local};
 use rand::{Rng};
 use std::{fs, process::Command, str, iter};
-use regex::Regex;
 
-// only remaining issue is to solve EOF errors, can either adjust character set or sh command
 fn main() {
     let acct_password: String = generate_password(12);
-    let zip_password: String = generate_password(12);
+    let zip_password: String = generate_password(8);
     let datetime_string: String = get_datetime_string();
     let win_path: String = get_win_path(&datetime_string);
     let win_txt_path: String = format!("{win_path}.txt");
     let sh_txt_path: String = format!("{datetime_string}.txt");
     let zip_path: String = format!("{datetime_string}.zip");
-    println!("{}", zip_path);
-    println!("{}", zip_password);
     write_password_to_file(&win_txt_path, acct_password);
-    zip_file_with_password(&sh_txt_path, &zip_path, zip_password)
+    zip_file_with_password(&sh_txt_path, &zip_path, zip_password);
 }
 
 fn generate_password(length: usize) -> String {
-    let chars: &[u8] = b"#qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM01234567890@$%^&*";
+    let chars: &[u8] = b"#qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM01234567890!@$%^&*()<>[]{}|_+-=";
     let mut rng = rand::thread_rng();
     let char = || chars[rng.gen_range(0..chars.len())] as char;
     let password: String = iter::repeat_with(char).take(length).collect();
-
-    let lowercase_regex = Regex::new(r"[a-z]").unwrap();
-    let uppercase_regex = Regex::new(r"[A-Z]").unwrap();
-    let number_regex = Regex::new(r"[0-9]").unwrap();
-    let symbol_regex = Regex::new(r"[@#$%^&*]").unwrap();
-    if lowercase_regex.is_match(&password) &&
-        uppercase_regex.is_match(&password) &&
-        number_regex.is_match(&password) &&
-        symbol_regex.is_match(&password) {
+    let mut password_chars = password.chars();
+    let is_valid_password = password_chars.any(|x| x.is_ascii_digit()) && 
+        password_chars.any(|x| x.is_ascii_punctuation()) && 
+        password_chars.any(|x| x.is_ascii_lowercase()) && 
+        password_chars.any(|x| x.is_ascii_uppercase());
+    if is_valid_password {
         password
     } else {
         generate_password(length)
     }
 }
 
-fn zip_file_with_password(txt_path: &str, zip_path: &str, password: String) {
-    println!("{} {} {}", txt_path, zip_path, password);
+// add error handling for Command Output
+fn zip_file_with_password(txt_path: &str, zip_path: &str, password: String) -> String {
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("zip -e {zip_path} {txt_path} -P {password}"))
+        .arg(format!("zip -e {zip_path} {txt_path} -P $'{password}'"))
         .output();
-    println!("{:#?}", output)
+    format!("{:#?}", output)
 }
 
 fn write_password_to_file(path: &str, password: String) {
@@ -57,16 +50,6 @@ fn get_win_path(datetime_string: &str) -> String {
     let full_path: String = format!("{path}{datetime_string}");
     full_path
 }
-
-// fn generate_password() -> String {
-//     let password: String = rand::thread_rng()
-//         // .sample_iter(Uniform::new(char::from(35), char::from(126)))
-//         .sample_iter(Uniform::from("abcdefg"))
-//         .take(12)
-//         .map(char::from)
-//         .collect();
-//     format!("{}\n", password)
-// }
 
 fn get_datetime_string() -> String {
     let datetime: DateTime<Local> = chrono::offset::Local::now();
